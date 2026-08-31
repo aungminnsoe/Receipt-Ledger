@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Receipt Ledger</title>
+<style>
+:root{
+  --bg:#EEF1EE; --panel:#FFFFFF; --ink:#16202A; --muted:#5C6B72;
+  --rule:#D3DAD5; --rule-soft:#E6EAE6;
+  --pine:#1B5E4B; --pine-soft:#E4EEE9;
+  --amber:#B5820D; --amber-soft:#FBF1DA;
+  --alert:#9E3A2A;
+  --num:"Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-text-size-adjust:100%}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--pine);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.wrap{max-width:1080px;margin:0 auto;padding:0 18px 120px}
+.hidden{display:none!important}
+
+/* ---------- gate screens ---------- */
+.gate{max-width:440px;margin:0 auto;padding:56px 18px 40px}
+.gate h1{font-size:22px;margin:0 0 6px}
+.gate p.lede{color:var(--muted);font-size:14px;margin:0 0 22px}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:5px;padding:20px}
+.tabs{display:flex;gap:14px;margin-bottom:16px;border-bottom:1px solid var(--rule)}
+.tabs button{border:none;background:transparent;padding:8px 2px;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--pine)}
+
+/* ---------- hero ---------- */
+header.hero{padding:22px 0 18px;border-bottom:1px solid var(--rule)}
+.hero-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{font-size:13px;letter-spacing:.02em;color:var(--muted)}
+.who{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.live{width:7px;height:7px;border-radius:50%;background:var(--pine);display:inline-block}
+.live.off{background:#B9C3BC}
+.yearpick{display:flex;align-items:center;gap:6px}
+.yearpick select{font:inherit;background:transparent;border:1px solid var(--rule);border-radius:3px;padding:4px 8px;color:var(--ink)}
+.figure{display:flex;align-items:flex-end;gap:10px;margin:14px 0 4px}
+.figure .cur{font-size:15px;color:var(--muted);padding-bottom:9px}
+.figure .amt{font-family:var(--num);font-size:clamp(38px,9vw,64px);line-height:.95;letter-spacing:-.02em;font-weight:600}
+.substat{color:var(--muted);font-size:13.5px}
+.substat b{font-weight:600;color:var(--ink)}
+.actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.btn{border:1px solid var(--rule);background:var(--panel);border-radius:3px;padding:9px 14px}
+.btn:hover{border-color:#B9C3BC}
+.btn-primary{background:var(--pine);border:1px solid var(--pine);color:#fff;border-radius:999px;padding:11px 22px;font-weight:600}
+.btn-primary:hover{background:#174E3F}
+.btn-block{width:100%;text-align:center}
+.btn-quiet{border:none;background:transparent;color:var(--muted);padding:6px 8px;text-decoration:underline}
+
+/* ---------- layout ---------- */
+.cols{display:grid;grid-template-columns:300px 1fr}
+.rail{border-right:1px solid var(--rule);padding:18px 18px 18px 0}
+.detail{padding:18px 0 18px 22px;min-width:0}
+@media (max-width:800px){
+  .cols{grid-template-columns:1fr}
+  .rail{border-right:none;border-bottom:1px solid var(--rule);padding:14px 0}
+  .detail{padding:16px 0 0}
+}
+.rail h2{font-size:12.5px;font-weight:600;color:var(--muted);margin:0 0 10px}
+.mrow{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center;width:100%;text-align:left;
+  background:transparent;border:none;border-bottom:1px solid var(--rule-soft);padding:9px 6px;border-radius:2px}
+.mrow:hover{background:#E7EBE7}
+.mrow[aria-current="true"]{background:var(--panel);box-shadow:inset 2px 0 0 var(--pine)}
+.mrow .mname{font-size:13.5px;color:var(--muted)}
+.mrow[aria-current="true"] .mname{color:var(--ink);font-weight:600}
+.bar{height:7px;background:var(--rule-soft);border-radius:1px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--pine)}
+.bar i.open{background:var(--amber)}
+.mrow .mamt{font-family:var(--num);font-size:13.5px}
+.mrow .mamt.zero{color:#A9B4AC}
+.lamp{width:7px;height:7px;border-radius:50%;background:var(--amber);display:inline-block;margin-left:6px;vertical-align:middle}
+
+.mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;
+  border-bottom:1px solid var(--rule);padding-bottom:14px;margin-bottom:6px}
+.mhead .mtitle{font-size:19px;font-weight:600;margin:0 0 6px}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;vertical-align:2px;margin-left:8px}
+.tag.open{background:var(--amber-soft);color:var(--amber)}
+.tag.closed{background:var(--pine-soft);color:var(--pine)}
+.mhead .mtot{font-family:var(--num);font-size:26px;font-weight:600;text-align:right;white-space:nowrap}
+.mhead .mtotlab{font-size:12.5px;color:var(--muted);text-align:right}
+.notice{background:var(--amber-soft);border-left:2px solid var(--amber);padding:8px 12px;font-size:13px;margin:12px 0}
+.cats{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 4px}
+.cat{font-size:12.5px;border:1px solid var(--rule);border-radius:999px;padding:3px 10px;background:var(--panel)}
+.cat .num{color:var(--muted);margin-left:6px}
+.dayhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:22px 0 0;padding-bottom:6px;border-bottom:1px solid var(--rule)}
+.dayhead .d{font-size:14px;font-weight:600}
+.dayhead .cum{font-size:12.5px;color:var(--muted)}
+.dayhead .dt{font-family:var(--num);font-size:14px;font-weight:600}
+.rcpt{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:10px 2px;border-bottom:1px solid var(--rule-soft)}
+.rcpt:hover{background:#E9EDE9}
+.thumb{width:34px;height:34px;border-radius:2px;object-fit:cover;background:var(--rule-soft);border:1px solid var(--rule);display:block}
+.thumb.none{display:flex;align-items:center;justify-content:center;font-size:10px;color:#98A49B}
+.rmerch{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rmeta{font-size:12px;color:var(--muted)}
+.ramt{font-family:var(--num);font-size:14px;text-align:right}
+.rowbtns{display:flex;gap:2px;justify-content:flex-end;margin-top:2px}
+.rowbtns button{border:none;background:transparent;font-size:11.5px;color:var(--muted);padding:2px 4px;text-decoration:underline}
+.by{color:var(--pine)}
+.empty{border:1px dashed var(--rule);padding:26px 20px;text-align:center;color:var(--muted);margin-top:18px}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+
+.dock{position:fixed;left:0;right:0;bottom:0;background:rgba(238,241,238,.94);backdrop-filter:blur(6px);
+  border-top:1px solid var(--rule);padding:12px 18px;z-index:30}
+.dock-in{max-width:1080px;margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.dock .hint{font-size:12.5px;color:var(--muted)}
+
+.scrim{position:fixed;inset:0;background:rgba(22,32,42,.45);display:none;z-index:40;align-items:flex-start;
+  justify-content:center;padding:24px 14px;overflow:auto}
+.scrim.on{display:flex}
+.sheet{background:var(--panel);border-radius:5px;max-width:520px;width:100%;padding:20px;box-shadow:0 18px 50px rgba(22,32,42,.25)}
+.sheet h3{margin:0 0 4px;font-size:17px}
+.sheet p.lede{margin:0 0 16px;color:var(--muted);font-size:13.5px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;font:inherit;padding:9px 10px;border:1px solid var(--rule);
+  border-radius:3px;background:#fff;color:var(--ink)}
+.field textarea{min-height:56px;resize:vertical}
+.field textarea.code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;min-height:150px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sheet .foot{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.preview{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.preview img{width:84px;border-radius:3px;border:1px solid var(--rule)}
+.spin{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:13.5px;padding:8px 0}
+.spin i{width:14px;height:14px;border:2px solid var(--rule);border-top-color:var(--pine);border-radius:50%;
+  animation:sp .8s linear infinite;display:block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.err{background:#F7E9E6;border-left:2px solid var(--alert);padding:9px 12px;font-size:13px;margin-bottom:12px}
+.dupe{background:var(--amber-soft);border-left:2px solid var(--amber);padding:9px 12px;font-size:13px;margin-bottom:12px}
+.viewer img{max-width:100%;border-radius:3px;display:block}
+details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.code-block{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;white-space:pre;overflow:auto;
+  background:#F4F6F4;border:1px solid var(--rule);border-radius:3px;padding:10px;margin-top:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:78px;background:var(--ink);color:#fff;
+  font-size:13px;padding:9px 14px;border-radius:3px;z-index:50;display:none}
+.toast.on{display:block}
+</style>
+</head>
+<body>
+
+<!-- ================= gate: firebase config ================= -->
+<div class="gate hidden" id="gateConfig">
+  <h1>Connect your Firebase project</h1>
+  <p class="lede">Paste the web app config from Firebase console, Project settings, Your apps. It is kept on this device only.</p>
+  <div class="card">
+    <div class="field">
+      <label for="cfgJson">Firebase config</label>
+      <textarea id="cfgJson" class="code" placeholder='{ "apiKey": "…", "authDomain": "…", "projectId": "…", "appId": "…" }'></textarea>
+    </div>
+    <div id="cfgErr"></div>
+    <button class="btn-primary btn-block" id="cfgSave">Connect project</button>
+    <p class="lede" style="margin:14px 0 0">To skip this screen for good, paste the same object into the FB_CONFIG constant near the top of this file before you upload it.</p>
+  </div>
+</div>
+
+<!-- ================= gate: sign in ================= -->
+<div class="gate hidden" id="gateAuth">
+  <h1>Receipt ledger</h1>
+  <p class="lede">Sign in so your receipts sync between your devices and your spouse's.</p>
+  <div class="card">
+    <div class="tabs">
+      <button id="tabSignIn" aria-selected="true">Sign in</button>
+      <button id="tabSignUp" aria-selected="false">Create account</button>
+    </div>
+    <div id="authErr"></div>
+    <div class="field"><label for="aEmail">Email</label><input id="aEmail" type="email" autocomplete="email"></div>
+    <div class="field"><label for="aPass">Password</label><input id="aPass" type="password" autocomplete="current-password"></div>
+    <button class="btn-primary btn-block" id="authGo">Sign in</button>
+    <div style="text-align:center;margin-top:10px"><button class="btn-quiet" id="authReset">Email me a reset link</button></div>
+  </div>
+  <p class="lede" style="margin-top:14px"><button class="btn-quiet" id="cfgChange">Use a different Firebase project</button></p>
+</div>
+
+<!-- ================= gate: household ================= -->
+<div class="gate hidden" id="gateHouse">
+  <h1>One ledger, two people</h1>
+  <p class="lede">Start a ledger and share the code, or join the one your spouse already started.</p>
+  <div class="card">
+    <div id="houseErr"></div>
+    <div class="field"><label for="hJoin">Join with a ledger code</label><input id="hJoin" placeholder="e.g. K4M2XQ" autocapitalize="characters"></div>
+    <button class="btn btn-block" id="hJoinGo">Join this ledger</button>
+    <p class="lede" style="margin:18px 0 8px">Or start a new one:</p>
+    <button class="btn-primary btn-block" id="hNewGo">Start a new ledger</button>
+    <div style="text-align:center;margin-top:12px"><button class="btn-quiet" id="hSignOut">Sign out</button></div>
+  </div>
+</div>
+
+<!-- ================= app ================= -->
+<div id="app" class="hidden">
+  <div class="wrap">
+    <header class="hero">
+      <div class="hero-top">
+        <div class="who">
+          <span class="live off" id="liveDot" title="Sync status"></span>
+          <span id="whoText">Connecting…</span>
+          <button class="btn-quiet" id="btnHouse">Ledger code</button>
+          <button class="btn-quiet" id="btnSignOut">Sign out</button>
+        </div>
+        <div class="yearpick">
+          <label for="yearSel" class="brand">Year</label>
+          <select id="yearSel"></select>
+        </div>
+      </div>
+      <div class="figure">
+        <span class="cur" id="heroCur">S$</span>
+        <span class="amt num" id="heroAmt">0.00</span>
+      </div>
+      <div class="substat" id="heroSub">Nothing recorded yet.</div>
+      <div class="actions">
+        <button class="btn-primary" id="btnCapture">Capture receipt</button>
+        <button class="btn" id="btnManual">Add manually</button>
+        <button class="btn" id="btnExport">Export CSV</button>
+        <button class="btn" id="btnSettings">Settings</button>
+      </div>
+    </header>
+    <div class="cols">
+      <nav class="rail"><h2>Months</h2><div id="monthList"></div></nav>
+      <section class="detail"><div id="detail"></div></section>
+    </div>
+  </div>
+  <div class="dock">
+    <div class="dock-in">
+      <div class="hint" id="dockHint">Take a photo, pick a screenshot, or paste an image with Ctrl+V.</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="btnPhoto">Take photo</button>
+        <button class="btn" id="btnFile">Choose image</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileCam" accept="image/*" capture="environment" class="hidden">
+<input type="file" id="fileAny" accept="image/*" multiple class="hidden">
+
+<!-- review / edit -->
+<div class="scrim" id="scrimEdit">
+  <div class="sheet">
+    <h3 id="editTitle">Check the details</h3>
+    <p class="lede" id="editLede">Fix anything that looks wrong before saving.</p>
+    <div id="editErr"></div>
+    <div id="editDupe"></div>
+    <div class="preview hidden" id="editPreview"><img id="editPreviewImg" alt="Captured receipt"></div>
+    <div class="spin hidden" id="editSpin"><i></i><span>Reading the receipt…</span></div>
+    <div class="field"><label for="fMerch">Merchant</label><input id="fMerch" placeholder="e.g. NTUC FairPrice"></div>
+    <div class="grid2">
+      <div class="field"><label for="fDate">Date</label><input id="fDate" type="date"></div>
+      <div class="field"><label for="fCat">Category</label><select id="fCat"></select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="fCurr">Currency</label><input id="fCurr" placeholder="SGD"></div>
+      <div class="field"><label for="fAmt">Total</label><input id="fAmt" type="number" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="fRate">Rate to base</label><input id="fRate" type="number" step="0.0001" value="1"></div>
+      <div class="field"><label for="fGst">GST / tax</label><input id="fGst" type="number" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="fPay">Paid with</label><input id="fPay" placeholder="e.g. PayNow, Visa"></div>
+      <div class="field"><label for="fRef">Reference</label><input id="fRef" placeholder="Invoice / claim no."></div>
+    </div>
+    <div class="field"><label for="fNote">Note</label><textarea id="fNote" placeholder="What was this for?"></textarea></div>
+    <div class="foot">
+      <button class="btn-quiet" id="editCancel">Cancel</button>
+      <button class="btn-primary" id="editSave">Save to ledger</button>
+    </div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="scrim" id="scrimSet">
+  <div class="sheet">
+    <h3>Settings</h3>
+    <p class="lede">Base currency and budget are shared with everyone on this ledger.</p>
+    <div class="field"><label for="sBase">Base currency</label><input id="sBase" placeholder="SGD"></div>
+    <div class="field"><label for="sBudget">Monthly budget (0 to hide)</label><input id="sBudget" type="number" step="1"></div>
+    <div class="field"><label for="sKey">Anthropic API key for reading receipts</label><input id="sKey" type="password" placeholder="Stored on this device only"></div>
+    <div class="field"><label for="sProxy">Or a proxy URL that holds the key server side</label><input id="sProxy" placeholder="https://…workers.dev/read-receipt"></div>
+    <div class="field"><label>Backup</label><button class="btn" id="btnBackup">Download JSON backup</button></div>
+    <details>
+      <summary>Firestore security rules to paste into your project</summary>
+      <div class="code-block" id="rulesText"></div>
+    </details>
+    <div class="foot">
+      <button class="btn-quiet" id="setClose">Close</button>
+      <button class="btn-primary" id="setSave">Save settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- household code -->
+<div class="scrim" id="scrimHouse">
+  <div class="sheet">
+    <h3>Ledger code</h3>
+    <p class="lede">Give this code to your spouse. They create an account, then join with it.</p>
+    <div class="figure" style="margin:0 0 6px"><span class="amt num" id="houseCode" style="font-size:34px">—</span></div>
+    <p class="lede" id="houseMembers"></p>
+    <div class="foot"><button class="btn-quiet" id="houseClose">Close</button></div>
+  </div>
+</div>
+
+<!-- viewer -->
+<div class="scrim" id="scrimView">
+  <div class="sheet viewer">
+    <h3 id="viewTitle">Receipt</h3>
+    <img id="viewImg" alt="Receipt image">
+    <div class="foot"><button class="btn-quiet" id="viewClose">Close</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* ============================================================
+   1. Firebase project config.
+   Paste yours here to skip the connect screen, or leave blank
+   and paste it into the app once — it is remembered per device.
+   ============================================================ */
+const FB_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  appId: ""
+};
+
+const SDK = 'https://www.gstatic.com/firebasejs/10.12.5/';
+const CATEGORIES = ['Food & drink','Groceries','Transport','Fuel & parking','Utilities & bills','Home','Health','Shopping','Work claimable','Travel','Leisure','Education','Fees & charges','Other'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const LS_CFG = 'ledger-fb-config', LS_LOCAL = 'ledger-device';
+
+const RULES = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /households/{hid} {
+      // anyone signed in may read the doc and add themselves,
+      // which is how joining by code works
+      allow get, create, update: if request.auth != null;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null &&
+          request.auth.uid in
+            get(/databases/$(database)/documents/households/$(hid)).data.members;
+      }
+    }
+  }
+}`;
+
+const el = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = n => (Number(n)||0).toLocaleString('en-SG',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pad = n => String(n).padStart(2,'0');
+const now = new Date();
+const todayISO = () => now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const baseAmt = r => (Number(r.amount)||0)*(Number(r.rate)||1);
+const mkey = (y,m) => y+'-'+pad(m+1);
+const isCurrent = (y,m) => y===now.getFullYear() && m===now.getMonth();
+const isFuture = (y,m) => y>now.getFullYear() || (y===now.getFullYear() && m>now.getMonth());
+const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+const lsSet = (k,v) => { try{ localStorage.setItem(k,v); }catch(e){} };
+
+let toastTimer;
+function toast(msg){
+  const t = el('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=> t.classList.remove('on'), 3200);
+}
+function show(which){
+  ['gateConfig','gateAuth','gateHouse','app'].forEach(id => el(id).classList.toggle('hidden', id !== which));
+}
+
+/* ============================================================
+   2. State
+   ============================================================ */
+const state = {
+  cfg:null, fb:null, user:null, hid:null, house:null,
+  year: now.getFullYear(), month: now.getMonth(),
+  receipts:[], closings:{}, years:[now.getFullYear()],
+  settings:{ base:'SGD', budget:0 },
+  device:{ apiKey:'', proxy:'' },
+  editing:null, queue:[], unsubs:[]
+};
+try{ Object.assign(state.device, JSON.parse(lsGet(LS_LOCAL)||'{}')); }catch(e){}
+el('rulesText').textContent = RULES;
+
+/* ============================================================
+   3. Boot
+   ============================================================ */
+function readConfig(){
+  if (FB_CONFIG.projectId) return FB_CONFIG;
+  try{ const c = JSON.parse(lsGet(LS_CFG)||'null'); return (c && c.projectId) ? c : null; }catch(e){ return null; }
+}
+async function boot(){
+  state.cfg = readConfig();
+  if (!state.cfg){ show('gateConfig'); return; }
+  try{
+    const [appMod, authMod, fsMod] = await Promise.all([
+      import(SDK+'firebase-app.js'), import(SDK+'firebase-auth.js'), import(SDK+'firebase-firestore.js')
+    ]);
+    const app = appMod.initializeApp(state.cfg);
+    let db;
+    try{
+      db = fsMod.initializeFirestore(app, { localCache: fsMod.persistentLocalCache({}) });
+    }catch(e){ db = fsMod.getFirestore(app); }
+    state.fb = { app, auth: authMod.getAuth(app), db, A: authMod, F: fsMod };
+    authMod.onAuthStateChanged(state.fb.auth, onUser);
+  }catch(e){
+    show('gateConfig');
+    el('cfgErr').innerHTML = '<div class="err">Firebase could not load here. This file needs to run from a hosted page such as GitHub Pages, with internet access.</div>';
+  }
+}
+
+async function onUser(user){
+  detach();
+  state.user = user;
+  if (!user){ show('gateAuth'); return; }
+  const { F, db } = state.fb;
+  try{
+    const snap = await F.getDoc(F.doc(db,'users',user.uid));
+    const hid = snap.exists() ? snap.data().householdId : null;
+    if (!hid){ show('gateHouse'); return; }
+    await enterHousehold(hid);
+  }catch(e){
+    show('gateHouse');
+    el('houseErr').innerHTML = '<div class="err">'+esc(e.message)+'</div>';
+  }
+}
+
+async function enterHousehold(hid){
+  const { F, db } = state.fb;
+  state.hid = hid;
+  const hs = await F.getDoc(F.doc(db,'households',hid));
+  state.house = hs.exists() ? hs.data() : { members:{} };
+  show('app');
+  el('whoText').textContent = shortName(state.user.email) + ' · ledger ' + hid;
+  attach();
+}
+function shortName(email){ return (email||'').split('@')[0]; }
+
+/* ============================================================
+   4. Live listeners
+   ============================================================ */
+function detach(){ state.unsubs.forEach(u => { try{ u(); }catch(e){} }); state.unsubs = []; el('liveDot').classList.add('off'); }
+function attach(){
+  detach();
+  const { F, db } = state.fb, hid = state.hid;
+  const rq = F.query(F.collection(db,'households',hid,'receipts'), F.where('year','==',state.year));
+  state.unsubs.push(F.onSnapshot(rq, snap => {
+    state.receipts = snap.docs.map(d => Object.assign({ id:d.id }, d.data()));
+    state.receipts.sort((a,b)=> a.date === b.date ? String(a.createdAt).localeCompare(String(b.createdAt)) : (a.date < b.date ? -1 : 1));
+    el('liveDot').classList.remove('off');
+    renderAll();
+  }, err => { toast('Sync paused: ' + err.code); el('liveDot').classList.add('off'); }));
+
+  state.unsubs.push(F.onSnapshot(F.collection(db,'households',hid,'closings'), snap => {
+    state.closings = {};
+    snap.docs.forEach(d => { state.closings[d.id] = d.data(); });
+    renderAll();
+  }, ()=>{}));
+
+  state.unsubs.push(F.onSnapshot(F.doc(db,'households',hid,'meta','settings'), snap => {
+    if (snap.exists()){
+      const d = snap.data();
+      state.settings.base = d.base || 'SGD';
+      state.settings.budget = Number(d.budget)||0;
+      if (Array.isArray(d.years) && d.years.length) state.years = d.years.slice().sort((a,b)=>b-a);
+    }
+    if (state.years.indexOf(now.getFullYear()) === -1) state.years.unshift(now.getFullYear());
+    renderAll();
+  }, ()=>{}));
+}
+
+/* ============================================================
+   5. Writes
+   ============================================================ */
+async function putReceipt(r){
+  const { F, db } = state.fb;
+  const y = parseInt(r.date.slice(0,4),10);
+  const doc = Object.assign({}, r, {
+    year: y, month: r.date.slice(0,7), amountBase: Number(baseAmt(r).toFixed(2)),
+    updatedAt: new Date().toISOString(), updatedBy: shortName(state.user.email)
+  });
+  delete doc.id;
+  await F.setDoc(F.doc(db,'households',state.hid,'receipts',r.id), doc, { merge:true });
+  await F.setDoc(F.doc(db,'households',state.hid,'meta','settings'),
+    { years: F.arrayUnion(y), base: state.settings.base, budget: state.settings.budget }, { merge:true });
+  return y;
+}
+async function removeReceipt(id){
+  const { F, db } = state.fb;
+  await F.deleteDoc(F.doc(db,'households',state.hid,'receipts',id));
+}
+async function closeMonth(){
+  const { F, db } = state.fb, key = mkey(state.year, state.month);
+  await F.setDoc(F.doc(db,'households',state.hid,'closings',key),
+    { total: Number(monthTotal(state.month).toFixed(2)), closedAt: new Date().toISOString(), closedBy: shortName(state.user.email) });
+  toast(MONTHS[state.month] + ' closed');
+}
+async function reopenMonth(){
+  const { F, db } = state.fb;
+  await F.deleteDoc(F.doc(db,'households',state.hid,'closings',mkey(state.year,state.month)));
+}
+async function saveSharedSettings(){
+  const { F, db } = state.fb;
+  await F.setDoc(F.doc(db,'households',state.hid,'meta','settings'),
+    { base: state.settings.base, budget: state.settings.budget }, { merge:true });
+}
+
+/* ============================================================
+   6. Derived
+   ============================================================ */
+const monthReceipts = m => state.receipts.filter(r => parseInt(r.date.slice(5,7),10)-1 === m);
+const monthTotal = m => monthReceipts(m).reduce((s,r)=> s+baseAmt(r), 0);
+const yearTotal = () => state.receipts.reduce((s,r)=> s+baseAmt(r), 0);
+const closedCount = () => Object.keys(state.closings).filter(k => k.slice(0,4) === String(state.year)).length;
+function symbolFor(c){
+  const map = {SGD:'S$',USD:'US$',MYR:'RM',THB:'฿',MMK:'K',EUR:'€',GBP:'£',AUD:'A$',JPY:'¥',CNY:'¥',HKD:'HK$',IDR:'Rp',PHP:'₱',INR:'₹',VND:'₫',KRW:'₩'};
+  return map[(c||'').toUpperCase()] || ((c||'').toUpperCase()+' ');
+}
+
+/* ============================================================
+   7. Render
+   ============================================================ */
+function renderAll(){ renderHero(); renderRail(); renderDetail(); }
+function renderHero(){
+  el('yearSel').innerHTML = state.years.map(y => '<option value="'+y+'"'+(y===state.year?' selected':'')+'>'+y+'</option>').join('');
+  el('heroCur').textContent = symbolFor(state.settings.base);
+  el('heroAmt').textContent = money(yearTotal());
+  const n = state.receipts.length, cc = closedCount();
+  el('heroSub').innerHTML = !n ? 'Nothing recorded for '+state.year+' yet.'
+    : '<b>'+n+'</b> receipt'+(n===1?'':'s')+' · <b>'+cc+'</b> month'+(cc===1?'':'s')+' closed'
+      + (state.year===now.getFullYear() ? ' · '+MONTHS[now.getMonth()]+' still open' : '');
+}
+function renderRail(){
+  const totals = MONTHS.map((_,m)=> monthTotal(m));
+  const peak = Math.max.apply(null, totals.concat([1]));
+  el('monthList').innerHTML = MONTHS.map((name,m)=>{
+    const t = totals[m], open = !state.closings[mkey(state.year,m)];
+    const pct = t>0 ? Math.max(3, Math.round(t/peak*100)) : 0;
+    return '<button class="mrow" data-m="'+m+'" aria-current="'+(m===state.month)+'">'
+      + '<span class="mname">'+name.slice(0,3)+(isCurrent(state.year,m)?'<span class="lamp"></span>':'')+'</span>'
+      + '<span class="bar"><i class="'+(open?'open':'')+'" style="width:'+pct+'%"></i></span>'
+      + '<span class="mamt num'+(t?'':' zero')+'">'+(t?money(t):'—')+'</span></button>';
+  }).join('');
+  document.querySelectorAll('.mrow').forEach(b => b.onclick = ()=>{
+    state.month = parseInt(b.dataset.m,10); renderRail(); renderDetail();
+  });
+}
+function renderDetail(){
+  const m = state.month, y = state.year, key = mkey(y,m);
+  const rs = monthReceipts(m), total = monthTotal(m);
+  const closing = state.closings[key], closed = !!closing;
+  const past = !isCurrent(y,m) && !isFuture(y,m);
+  const sym = symbolFor(state.settings.base);
+  let html = '';
+  html += '<div class="mhead"><div><h1 class="mtitle">'+MONTHS[m]+' '+y
+       + '<span class="tag '+(closed?'closed':'open')+'">'+(closed?'closed':'open')+'</span></h1>'
+       + '<div class="substat">'+rs.length+' receipt'+(rs.length===1?'':'s')
+       + (closed ? ' · closed '+closing.closedAt.slice(0,10)+' by '+esc(closing.closedBy||'')
+                 : (past ? ' · month has ended' : ' · running total, updates as either of you adds a receipt'))
+       + '</div></div><div><div class="mtot num">'+sym+' '+money(total)+'</div>'
+       + '<div class="mtotlab">'+(closed?'final for the month':'so far this month')+'</div><div class="rowbtns">'
+       + (closed ? '<button id="btnReopen">Reopen month</button>' : (rs.length ? '<button id="btnClose">Close the month</button>' : ''))
+       + '</div></div></div>';
+  if (closed && Math.abs(closing.total-total) > .005)
+    html += '<div class="notice">Closed at '+sym+' '+money(closing.total)+' but now adds up to '+sym+' '+money(total)
+         + '. Reopen and close again to lock the new figure.</div>';
+  if (!closed && past && rs.length)
+    html += '<div class="notice">'+MONTHS[m]+' has ended. Close it to lock in the monthly summary.</div>';
+  const budget = Number(state.settings.budget)||0;
+  if (budget>0 && rs.length){
+    const left = budget-total;
+    html += '<div class="substat" style="margin-top:12px">Budget '+sym+' '+money(budget)+' · '
+         + (left>=0 ? money(left)+' left' : money(-left)+' over')+'</div>';
+  }
+  if (!rs.length){
+    html += '<div class="empty"><b>No receipts in '+MONTHS[m]+'</b>Snap one with the camera, paste a screenshot, or add it by hand.</div>';
+  } else {
+    const byCat = {};
+    rs.forEach(r => { byCat[r.category||'Other'] = (byCat[r.category||'Other']||0)+baseAmt(r); });
+    html += '<div class="cats">' + Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a])
+      .map(c => '<span class="cat">'+esc(c)+'<span class="num">'+money(byCat[c])+'</span></span>').join('') + '</div>';
+    const gst = rs.reduce((s,r)=> s+(Number(r.gst)||0)*(Number(r.rate)||1), 0);
+    if (gst>0) html += '<div class="substat">GST / tax in this month: '+sym+' '+money(gst)+'</div>';
+    const days = {};
+    rs.forEach(r => { (days[r.date] = days[r.date]||[]).push(r); });
+    let cum = 0;
+    Object.keys(days).sort().forEach(d => {
+      const dayTotal = days[d].reduce((s,r)=> s+baseAmt(r), 0); cum += dayTotal;
+      const dd = new Date(d+'T00:00:00');
+      const label = dd.getDate()+' '+MONTHS[dd.getMonth()].slice(0,3)+', '+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dd.getDay()];
+      html += '<div class="dayhead"><div><span class="d">'+label+'</span> <span class="cum">month to date '+money(cum)
+           + '</span></div><span class="dt num">'+money(dayTotal)+'</span></div>';
+      days[d].forEach(r => {
+        const thumb = r.thumb ? '<img class="thumb" src="'+r.thumb+'" alt="Receipt from '+esc(r.merchant||'')+'" data-view="'+r.id+'">'
+                              : '<span class="thumb none">typed</span>';
+        const foreign = (r.currency||'').toUpperCase() !== (state.settings.base||'SGD').toUpperCase()
+          ? ' · '+esc(r.currency)+' '+money(r.amount) : '';
+        const by = r.updatedBy && r.updatedBy !== shortName(state.user.email)
+          ? ' · <span class="by">'+esc(r.updatedBy)+'</span>' : '';
+        html += '<div class="rcpt">'+thumb+'<div><div class="rmerch">'+esc(r.merchant||'Unnamed')+'</div>'
+             + '<div class="rmeta">'+esc(r.category||'Other')+(r.payment?' · '+esc(r.payment):'')+foreign
+             + (r.note?' · '+esc(r.note):'')+by+'</div></div><div><div class="ramt num">'+money(baseAmt(r))+'</div>'
+             + '<div class="rowbtns"><button data-edit="'+r.id+'">Edit</button>'
+             + '<button data-del="'+r.id+'">Delete</button></div></div></div>';
+      });
+    });
+  }
+  el('detail').innerHTML = html;
+  const bc = el('btnClose'); if (bc) bc.onclick = closeMonth;
+  const br = el('btnReopen'); if (br) br.onclick = reopenMonth;
+  document.querySelectorAll('[data-edit]').forEach(b => b.onclick = ()=> openEdit(b.dataset.edit));
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = ()=> delReceipt(b.dataset.del));
+  document.querySelectorAll('[data-view]').forEach(i => i.onclick = ()=> viewImage(i.dataset.view));
+}
+
+/* ============================================================
+   8. Images + extraction
+   ============================================================ */
+const readFile = f => new Promise((res,rej)=>{ const fr=new FileReader();
+  fr.onload=()=>res(fr.result); fr.onerror=()=>rej(new Error('Could not read that file.')); fr.readAsDataURL(f); });
+function resize(dataUrl, maxSide, quality){
+  return new Promise((res,rej)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const s = Math.min(1, maxSide/Math.max(img.width,img.height));
+      const w = Math.max(1,Math.round(img.width*s)), h = Math.max(1,Math.round(img.height*s));
+      const c = document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      res(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = ()=> rej(new Error('That image could not be opened.'));
+    img.src = dataUrl;
+  });
+}
+const EXTRACT_PROMPT =
+ 'You are reading a photo or screenshot of a purchase receipt, invoice or payment confirmation. '
++'Reply with a single JSON object and nothing else — no prose, no markdown fences. Keys:\n'
++'merchant (string, the shop or biller name),\n'
++'date (string "YYYY-MM-DD" transaction date; if no year printed use '+now.getFullYear()+'; if no date at all use ""),\n'
++'currency (3-letter code, infer from symbols or language, default SGD),\n'
++'total (number, the final amount paid including tax and service charge),\n'
++'gst (number, the GST/VAT/tax amount shown, else 0),\n'
++'category (exactly one of: '+CATEGORIES.join(', ')+'),\n'
++'payment (string, e.g. "Visa 1234", "PayNow", "Cash", or ""),\n'
++'reference (string, receipt or invoice number, or ""),\n'
++'note (string, at most 8 words on what was bought),\n'
++'confidence (number 0-1).\n'
++'If the image is not a receipt, set total to 0 and note to "not a receipt".';
+
+async function extract(imgDataUrl){
+  const b64 = imgDataUrl.split(',')[1];
+  const body = {
+    model:'claude-sonnet-4-6', max_tokens:1000,
+    messages:[{ role:'user', content:[
+      { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:b64 } },
+      { type:'text', text:EXTRACT_PROMPT }
+    ]}]
+  };
+  let url = 'https://api.anthropic.com/v1/messages';
+  const headers = { 'Content-Type':'application/json' };
+  if (state.device.proxy){
+    url = state.device.proxy;
+  } else if (state.device.apiKey){
+    headers['x-api-key'] = state.device.apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  } else {
+    throw new Error('Add an Anthropic API key or a proxy URL in Settings to read receipts automatically. You can still type the details in.');
+  }
+  const res = await fetch(url, { method:'POST', headers, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error('The reader did not respond ('+res.status+'). Fill the fields in by hand.');
+  const data = await res.json();
+  const text = (data.content||[]).map(p => p.type==='text' ? p.text : '').join('\n');
+  const clean = text.replace(/```json|```/g,'').trim();
+  const a = clean.indexOf('{'), b = clean.lastIndexOf('}');
+  if (a<0 || b<0) throw new Error('Could not make sense of that image. Fill the fields in by hand.');
+  return JSON.parse(clean.slice(a,b+1));
+}
+
+/* ============================================================
+   9. Capture flow
+   ============================================================ */
+function handleFiles(files){ state.queue = Array.prototype.slice.call(files); nextInQueue(); }
+async function nextInQueue(){
+  const file = state.queue.shift(); if (!file) return;
+  openSheet('scrimEdit');
+  el('editTitle').textContent = 'Check the details';
+  el('editLede').textContent = state.queue.length
+    ? 'Reading this one. '+(state.queue.length+1)+' images in this batch.'
+    : 'Fix anything that looks wrong before saving.';
+  el('editErr').innerHTML = ''; el('editDupe').innerHTML = '';
+  el('editSpin').classList.remove('hidden');
+  fillForm({ date: todayISO(), currency: state.settings.base||'SGD', rate:1 });
+
+  let full, thumb;
+  try{
+    const raw = await readFile(file);
+    full  = await resize(raw, 1400, .78);
+    thumb = await resize(raw, 240, .5);
+  }catch(e){
+    el('editSpin').classList.add('hidden');
+    el('editErr').innerHTML = '<div class="err">'+esc(e.message)+'</div>';
+    state.editing = { id:uid(), thumb:null, image:null, source:'manual', createdAt:new Date().toISOString(), createdBy:shortName(state.user.email) };
+    return;
+  }
+  // keep the stored copy well under the 1 MB Firestore document limit
+  let stored = await resize(full, 1000, .62);
+  if (stored.length > 700000) stored = await resize(full, 800, .5);
+  el('editPreview').classList.remove('hidden');
+  el('editPreviewImg').src = thumb;
+  state.editing = { id:uid(), thumb, image:stored, source:'photo', createdAt:new Date().toISOString(), createdBy:shortName(state.user.email) };
+
+  try{
+    const d = await extract(full);
+    el('editSpin').classList.add('hidden');
+    fillForm({
+      merchant: d.merchant||'',
+      date: /^\d{4}-\d{2}-\d{2}$/.test(d.date||'') ? d.date : todayISO(),
+      currency: (d.currency||state.settings.base||'SGD').toUpperCase(),
+      amount: Number(d.total)||0, gst: Number(d.gst)||0,
+      category: CATEGORIES.indexOf(d.category)>=0 ? d.category : 'Other',
+      payment: d.payment||'', reference: d.reference||'', note: d.note||'', rate:1
+    });
+    if (d.confidence != null && Number(d.confidence) < .6)
+      el('editErr').innerHTML = '<div class="dupe">Parts of this receipt were hard to read. Check the total and the date.</div>';
+    if ((d.currency||'').toUpperCase() !== (state.settings.base||'SGD').toUpperCase())
+      el('editDupe').innerHTML = '<div class="dupe">Foreign currency receipt. Set the rate to base so the ledger totals in '
+        + esc(state.settings.base||'SGD')+'.</div>';
+    checkDupe();
+  }catch(e){
+    el('editSpin').classList.add('hidden');
+    el('editErr').innerHTML = '<div class="err">'+esc(e.message)+'</div>';
+  }
+}
+function fillForm(r){
+  el('fCat').innerHTML = CATEGORIES.map(c => '<option'+(c===r.category?' selected':'')+'>'+c+'</option>').join('');
+  el('fMerch').value = r.merchant||''; el('fDate').value = r.date||todayISO();
+  el('fCurr').value = r.currency||state.settings.base||'SGD';
+  el('fAmt').value = r.amount!=null ? r.amount : ''; el('fGst').value = r.gst||'';
+  el('fRate').value = r.rate||1; el('fPay').value = r.payment||'';
+  el('fRef').value = r.reference||''; el('fNote').value = r.note||'';
+}
+function readForm(){
+  return {
+    merchant: el('fMerch').value.trim(), date: el('fDate').value||todayISO(),
+    currency: (el('fCurr').value.trim()||state.settings.base||'SGD').toUpperCase(),
+    amount: Number(el('fAmt').value)||0, gst: Number(el('fGst').value)||0,
+    rate: Number(el('fRate').value)||1, category: el('fCat').value,
+    payment: el('fPay').value.trim(), reference: el('fRef').value.trim(), note: el('fNote').value.trim()
+  };
+}
+function checkDupe(){
+  const f = readForm();
+  const hit = f.merchant && state.receipts.some(r => r.id !== (state.editing&&state.editing.id)
+    && r.date === f.date && Math.abs(baseAmt(r) - f.amount*f.rate) < .01
+    && (r.merchant||'').toLowerCase() === f.merchant.toLowerCase());
+  if (hit) el('editDupe').innerHTML = '<div class="dupe">A receipt with the same merchant, date and amount is already in the ledger.</div>';
+}
+async function saveEdit(){
+  const f = readForm();
+  if (!f.amount){ el('editErr').innerHTML = '<div class="err">Enter the total before saving.</div>'; return; }
+  const draft = Object.assign({}, state.editing, f);
+  el('editSave').disabled = true;
+  try{
+    const y = await putReceipt(draft);
+    closeSheet('scrimEdit');
+    if (y !== state.year){ state.year = y; attach(); }
+    state.month = parseInt(draft.date.slice(5,7),10)-1;
+    renderAll();
+    toast('Saved · ' + symbolFor(state.settings.base) + ' ' + money(baseAmt(draft)));
+  }catch(e){
+    el('editErr').innerHTML = '<div class="err">Could not save: '+esc(e.message)+'</div>';
+  }finally{ el('editSave').disabled = false; }
+  if (state.queue.length) setTimeout(nextInQueue, 250);
+}
+function openEdit(id){
+  const r = state.receipts.find(x => x.id === id); if (!r) return;
+  state.editing = Object.assign({}, r);
+  openSheet('scrimEdit');
+  el('editTitle').textContent = 'Edit receipt';
+  el('editLede').textContent = 'Saved straight to the shared ledger. If the month is closed, close it again to lock the new figure.';
+  el('editErr').innerHTML = ''; el('editDupe').innerHTML = '';
+  el('editSpin').classList.add('hidden');
+  if (r.thumb){ el('editPreview').classList.remove('hidden'); el('editPreviewImg').src = r.thumb; }
+  else el('editPreview').classList.add('hidden');
+  fillForm(r);
+}
+function openManual(){
+  state.editing = { id:uid(), thumb:null, image:null, source:'manual',
+    createdAt:new Date().toISOString(), createdBy:shortName(state.user.email) };
+  openSheet('scrimEdit');
+  el('editTitle').textContent = 'Add a receipt by hand';
+  el('editLede').textContent = 'For cash spends and anything without a paper trail.';
+  el('editErr').innerHTML = ''; el('editDupe').innerHTML = '';
+  el('editSpin').classList.add('hidden'); el('editPreview').classList.add('hidden');
+  const d = new Date(state.year, state.month, Math.min(now.getDate(), 28));
+  fillForm({ date: d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()),
+    currency: state.settings.base||'SGD', rate:1, category:'Other' });
+  el('fMerch').focus();
+}
+async function delReceipt(id){
+  const r = state.receipts.find(x => x.id === id); if (!r) return;
+  if (!confirm('Delete the '+money(baseAmt(r))+' receipt from '+(r.merchant||'this merchant')+'? Your spouse sees this change too.')) return;
+  try{ await removeReceipt(id); toast('Deleted'); }catch(e){ toast('Could not delete: '+e.code); }
+}
+function viewImage(id){
+  const r = state.receipts.find(x => x.id === id); if (!r) return;
+  const src = r.image || r.thumb; if (!src) return;
+  el('viewTitle').textContent = (r.merchant||'Receipt')+' · '+r.date;
+  el('viewImg').src = src; openSheet('scrimView');
+}
+
+/* ============================================================
+   10. Export
+   ============================================================ */
+function download(name, text, type){
+  const b = new Blob([text], {type: type||'text/plain;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click();
+  setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+}
+function exportCSV(){
+  const head = ['date','month','merchant','category','currency','amount','rate','amount_base','gst','payment','reference','note','entered_by','month_status'];
+  const rows = state.receipts.map(r => {
+    const m = parseInt(r.date.slice(5,7),10)-1;
+    return [r.date, mkey(state.year,m), r.merchant, r.category, r.currency, r.amount, r.rate,
+      baseAmt(r).toFixed(2), r.gst||0, r.payment, r.reference, r.note, r.updatedBy||r.createdBy||'',
+      state.closings[mkey(state.year,m)] ? 'closed' : 'open'];
+  });
+  const csv = [head].concat(rows).map(r => r.map(v => {
+    const s = String(v==null?'':v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(',')).join('\n');
+  download('receipts-'+state.year+'.csv', csv, 'text/csv;charset=utf-8');
+}
+function backup(){
+  const light = state.receipts.map(r => { const c = Object.assign({}, r); delete c.image; delete c.thumb; return c; });
+  download('receipt-ledger-'+state.year+'.json',
+    JSON.stringify({ exportedAt:new Date().toISOString(), household:state.hid, year:state.year,
+      settings:state.settings, closings:state.closings, receipts:light }), 'application/json');
+}
+
+/* ============================================================
+   11. Wiring
+   ============================================================ */
+const openSheet = id => el(id).classList.add('on');
+const closeSheet = id => el(id).classList.remove('on');
+
+el('cfgSave').onclick = ()=>{
+  try{
+    const c = JSON.parse(el('cfgJson').value.replace(/^\s*(const|var|let)\s+\w+\s*=\s*/,'').replace(/;\s*$/,''));
+    if (!c.projectId || !c.apiKey) throw new Error('That config has no projectId or apiKey in it.');
+    lsSet(LS_CFG, JSON.stringify(c)); location.reload();
+  }catch(e){ el('cfgErr').innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+};
+el('cfgChange').onclick = ()=>{ lsSet(LS_CFG,''); location.reload(); };
+
+let authMode = 'in';
+el('tabSignIn').onclick = ()=>{ authMode='in'; el('tabSignIn').setAttribute('aria-selected','true');
+  el('tabSignUp').setAttribute('aria-selected','false'); el('authGo').textContent='Sign in'; el('authErr').innerHTML=''; };
+el('tabSignUp').onclick = ()=>{ authMode='up'; el('tabSignUp').setAttribute('aria-selected','true');
+  el('tabSignIn').setAttribute('aria-selected','false'); el('authGo').textContent='Create account'; el('authErr').innerHTML=''; };
+el('authGo').onclick = async ()=>{
+  const { A, auth } = state.fb, email = el('aEmail').value.trim(), pass = el('aPass').value;
+  el('authErr').innerHTML = ''; el('authGo').disabled = true;
+  try{
+    if (authMode==='up') await A.createUserWithEmailAndPassword(auth, email, pass);
+    else await A.signInWithEmailAndPassword(auth, email, pass);
+  }catch(e){ el('authErr').innerHTML = '<div class="err">'+esc(friendly(e))+'</div>'; }
+  finally{ el('authGo').disabled = false; }
+};
+el('authReset').onclick = async ()=>{
+  const { A, auth } = state.fb, email = el('aEmail').value.trim();
+  if (!email){ el('authErr').innerHTML = '<div class="err">Type your email first.</div>'; return; }
+  try{ await A.sendPasswordResetEmail(auth, email); el('authErr').innerHTML = '<div class="dupe">Reset link sent to '+esc(email)+'.</div>'; }
+  catch(e){ el('authErr').innerHTML = '<div class="err">'+esc(friendly(e))+'</div>'; }
+};
+function friendly(e){
+  const c = e.code||'';
+  if (c.indexOf('invalid-credential')>=0 || c.indexOf('wrong-password')>=0) return 'That email and password do not match.';
+  if (c.indexOf('email-already-in-use')>=0) return 'That email already has an account. Sign in instead.';
+  if (c.indexOf('weak-password')>=0) return 'Use at least six characters.';
+  if (c.indexOf('invalid-email')>=0) return 'That email address is not valid.';
+  if (c.indexOf('operation-not-allowed')>=0) return 'Turn on Email/Password sign-in in Firebase console, Authentication, Sign-in method.';
+  return e.message||'Something went wrong.';
+}
+el('hSignOut').onclick = ()=> state.fb.A.signOut(state.fb.auth);
+el('btnSignOut').onclick = ()=> state.fb.A.signOut(state.fb.auth);
+
+el('hNewGo').onclick = async ()=>{
+  const { F, db } = state.fb;
+  const code = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+  el('houseErr').innerHTML = '';
+  try{
+    const members = {}; members[state.user.uid] = state.user.email;
+    await F.setDoc(F.doc(db,'households',code), { members, createdAt:new Date().toISOString() });
+    await F.setDoc(F.doc(db,'users',state.user.uid), { householdId:code, email:state.user.email }, { merge:true });
+    await F.setDoc(F.doc(db,'households',code,'meta','settings'), { base:'SGD', budget:0, years:[now.getFullYear()] }, { merge:true });
+    await enterHousehold(code);
+    openSheet('scrimHouse'); renderHouse();
+  }catch(e){ el('houseErr').innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+};
+el('hJoinGo').onclick = async ()=>{
+  const { F, db } = state.fb;
+  const code = el('hJoin').value.trim().toUpperCase();
+  el('houseErr').innerHTML = '';
+  if (!code){ el('houseErr').innerHTML = '<div class="err">Type the code your spouse sent you.</div>'; return; }
+  try{
+    const ref = F.doc(db,'households',code);
+    const snap = await F.getDoc(ref);
+    if (!snap.exists()){ el('houseErr').innerHTML = '<div class="err">No ledger with that code.</div>'; return; }
+    const patch = {}; patch['members.'+state.user.uid] = state.user.email;
+    await F.updateDoc(ref, patch);
+    await F.setDoc(F.doc(db,'users',state.user.uid), { householdId:code, email:state.user.email }, { merge:true });
+    await enterHousehold(code);
+  }catch(e){ el('houseErr').innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+};
+
+function renderHouse(){
+  el('houseCode').textContent = state.hid || '—';
+  const ms = Object.values((state.house && state.house.members) || {});
+  el('houseMembers').textContent = ms.length ? 'On this ledger: ' + ms.join(', ') : '';
+}
+el('btnHouse').onclick = ()=>{ renderHouse(); openSheet('scrimHouse'); };
+el('houseClose').onclick = ()=> closeSheet('scrimHouse');
+
+el('btnCapture').onclick = ()=> el('fileCam').click();
+el('btnPhoto').onclick   = ()=> el('fileCam').click();
+el('btnFile').onclick    = ()=> el('fileAny').click();
+el('btnManual').onclick  = openManual;
+el('btnExport').onclick  = exportCSV;
+el('btnBackup').onclick  = backup;
+el('fileCam').onchange = e => { if (e.target.files.length) handleFiles(e.target.files); e.target.value=''; };
+el('fileAny').onchange = e => { if (e.target.files.length) handleFiles(e.target.files); e.target.value=''; };
+el('editCancel').onclick = ()=>{ closeSheet('scrimEdit'); state.queue = []; };
+el('editSave').onclick = saveEdit;
+el('fMerch').onblur = checkDupe; el('fAmt').onblur = checkDupe;
+el('viewClose').onclick = ()=> closeSheet('scrimView');
+
+el('btnSettings').onclick = ()=>{
+  el('sBase').value = state.settings.base||'SGD';
+  el('sBudget').value = state.settings.budget||'';
+  el('sKey').value = state.device.apiKey||'';
+  el('sProxy').value = state.device.proxy||'';
+  openSheet('scrimSet');
+};
+el('setClose').onclick = ()=> closeSheet('scrimSet');
+el('setSave').onclick = async ()=>{
+  state.settings.base = (el('sBase').value.trim()||'SGD').toUpperCase();
+  state.settings.budget = Number(el('sBudget').value)||0;
+  state.device.apiKey = el('sKey').value.trim();
+  state.device.proxy = el('sProxy').value.trim();
+  lsSet(LS_LOCAL, JSON.stringify(state.device));
+  try{ await saveSharedSettings(); }catch(e){ toast('Settings saved on this device only: '+e.code); }
+  closeSheet('scrimSet'); renderAll();
+};
+el('yearSel').onchange = e => { state.year = parseInt(e.target.value,10);
+  state.month = state.year===now.getFullYear() ? now.getMonth() : 0; attach(); };
+
+document.addEventListener('paste', e => {
+  if (el('app').classList.contains('hidden')) return;
+  const items = (e.clipboardData && e.clipboardData.items) || [], files = [];
+  for (let i=0;i<items.length;i++){
+    if (items[i].type && items[i].type.indexOf('image')===0){ const f = items[i].getAsFile(); if (f) files.push(f); }
+  }
+  if (files.length){ e.preventDefault(); handleFiles(files); }
+});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  if (el('app').classList.contains('hidden')) return;
+  if (e.dataTransfer && e.dataTransfer.files.length){
+    e.preventDefault();
+    handleFiles(Array.prototype.filter.call(e.dataTransfer.files, f => f.type.indexOf('image')===0));
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ['scrimEdit','scrimSet','scrimView','scrimHouse'].forEach(closeSheet);
+});
+window.addEventListener('online', ()=> el('liveDot').classList.remove('off'));
+window.addEventListener('offline', ()=> { el('liveDot').classList.add('off'); toast('Offline. Receipts save locally and sync when you reconnect.'); });
+
+boot();
+</script>
+</body>
+</html>
